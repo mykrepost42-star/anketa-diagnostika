@@ -37,6 +37,7 @@ html:not(.js) .needs-js { display: none; }
 .head { background: var(--green); color: #F4F1EA; border-radius: 18px; padding: 22px 20px; }
 .head h1 { font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.15; margin: 0 0 8px; color: #fff; }
 .head p { margin: 0; color: #DCE5DE; }
+.head .voice-hint { margin-top: 10px; color: #fff; font-weight: 600; }
 .privacy { margin-top: 14px; display: flex; gap: 10px; align-items: flex-start; background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
 .privacy b { color: #F2B8C4; }
 
@@ -53,6 +54,22 @@ section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600;
 .q .req { color: var(--rose); }
 .q input[type="text"], .q textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--paper); }
 .q textarea { min-height: 88px; resize: vertical; }
+.with-mic { display: grid; gap: 6px; }
+.mic {
+  justify-self: start;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--green);
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mic:hover { border-color: var(--green); }
+.mic.listening { background: var(--rose); border-color: var(--rose); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(180, 71, 92, 0.18); } }
+@media (prefers-reduced-motion: reduce) { .mic.listening { animation: none; } }
 .opts { display: grid; gap: 6px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--paper); }
 .opt:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
@@ -82,6 +99,7 @@ section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600;
   <header class="head">
     <h1 id="title"></h1>
     <p id="intro"></p>
+    <p class="voice-hint" id="voice-hint"></p>
     <div class="privacy"><b>🔒</b><span id="privacy"></span></div>
   </header>
 
@@ -110,7 +128,8 @@ section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600;
 window.ANKETA = {
   title: "Диагностика бизнеса перед встречей",
   intro: "Ответьте, пожалуйста, до нашей встречи — это 7–10 минут. Я заранее разберусь в вашей ситуации, и на встрече мы сразу перейдём к решениям. Пишите как есть, своими словами: правильных ответов нет. Обязательные вопросы отмечены звёздочкой.",
-  privacy: "Конфиденциально: анкета не загружает ответы ни на какой сервер и в базу. Они хранятся только в этом браузере, пока вы заполняете, и уходят Надежде, когда вы сами отправите их личным сообщением.",
+  voiceHint: "Можно не печатать: нажмите «🎤 Надиктовать» у вопроса и говорите.",
+  privacy: "Конфиденциально: анкета не загружает ответы ни на какой сервер и в базу. Они хранятся только в этом браузере, пока вы заполняете, и уходят Надежде, когда вы сами отправите их личным сообщением. Голос распознаёт ваш браузер или клавиатура телефона, как при обычной диктовке сообщения; сама анкета запись не получает.",
   whatsapp: "79043719721",
   recipient: "Надежде Вашлаевой",
   storageKey: "anketa-diagnostika-v1",
@@ -227,14 +246,75 @@ window.ANKETA = {
     return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());
   }
 
+  // ---------- voice input ----------
+  // Speech is recognised by the browser or the phone keyboard (Google or Apple), never by this page.
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let activeVoice = null;
+
+  function stopVoice() {
+    if (!activeVoice) return;
+    const { rec, button } = activeVoice;
+    activeVoice = null;
+    button.classList.remove("listening");
+    button.textContent = "🎤 Надиктовать";
+    try { rec.stop(); } catch (e) { /* already stopped */ }
+  }
+
+  function appendToField(input, text) {
+    const clean = text.trim();
+    if (!clean) return;
+    input.value = input.value.trim() ? `${input.value.trim()} ${clean}` : clean;
+    setAnswer(input.id, input.value);
+  }
+
+  function startVoice(input, button) {
+    if (activeVoice && activeVoice.button === button) return stopVoice();
+    stopVoice();
+    if (!Recognition) {
+      input.focus();
+      status("Нажмите значок микрофона на клавиатуре телефона и говорите — текст появится в поле. На компьютере с Windows: Win + H.");
+      return;
+    }
+    const rec = new Recognition();
+    rec.lang = "ru-RU";
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) appendToField(input, event.results[i][0].transcript);
+      }
+    };
+    rec.onerror = (event) => {
+      const reason = event.error === "not-allowed" || event.error === "service-not-allowed"
+        ? "Разрешите доступ к микрофону или нажмите микрофон на клавиатуре телефона."
+        : "Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре телефона.";
+      status(reason, true);
+      stopVoice();
+    };
+    rec.onend = () => { if (activeVoice && activeVoice.rec === rec) stopVoice(); };
+    activeVoice = { rec, button };
+    button.classList.add("listening");
+    button.textContent = "■ Готово";
+    status("Слушаю… Говорите. Нажмите «Готово», когда закончите.");
+    try { rec.start(); } catch (e) {
+      stopVoice();
+      status("Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре телефона.", true);
+    }
+  }
+
+  function withMic(input) {
+    const button = el("button", { type: "button", class: "mic", "aria-label": "Надиктовать ответ голосом", onclick: () => startVoice(input, button) }, "🎤 Надиктовать");
+    return el("div", { class: "with-mic" }, input, button);
+  }
+
   // ---------- render ----------
   function fieldInput(f) {
     const value = answers[f.id];
     if (f.type === "textarea") {
-      return el("textarea", { id: f.id, placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }, value || "");
+      return withMic(el("textarea", { id: f.id, placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }, value || ""));
     }
     if (f.type === "text") {
-      return el("input", { id: f.id, type: "text", value: value || "", placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) });
+      return withMic(el("input", { id: f.id, type: "text", value: value || "", placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }));
     }
     const multi = f.type === "checkbox";
     const chosen = multi ? (value || []) : value;
@@ -264,6 +344,7 @@ window.ANKETA = {
   function render() {
     document.getElementById("title").textContent = A.title;
     document.getElementById("intro").textContent = A.intro;
+    document.getElementById("voice-hint").textContent = A.voiceHint;
     document.getElementById("privacy").textContent = A.privacy;
     document.getElementById("consent-text").textContent = A.consent;
     document.getElementById("form").replaceChildren(...A.sections.map((s) =>
@@ -354,7 +435,7 @@ window.ANKETA = {
     document.getElementById("clear").addEventListener("click", clearAll);
   }
 
-  window.AnketaApp = { init, compose, validate };
+  window.AnketaApp = { init, compose, validate, hasRecognition: Boolean(Recognition) };
 })();
 </script>
 <script>AnketaApp.init();</script>
