@@ -70,6 +70,9 @@ section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600;
 .mic.listening { background: var(--rose); border-color: var(--rose); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(180, 71, 92, 0.18); } }
 @media (prefers-reduced-motion: reduce) { .mic.listening { animation: none; } }
+.voice-note { font-size: 14px; color: var(--green); }
+.voice-note:empty { display: none; }
+.voice-note.bad { color: var(--rose); }
 .opts { display: grid; gap: 6px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--paper); }
 .opt:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
@@ -128,7 +131,7 @@ section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600;
 window.ANKETA = {
   title: "Диагностика бизнеса перед встречей",
   intro: "Ответьте, пожалуйста, до нашей встречи — это 7–10 минут. Я заранее разберусь в вашей ситуации, и на встрече мы сразу перейдём к решениям. Пишите как есть, своими словами: правильных ответов нет. Обязательные вопросы отмечены звёздочкой.",
-  voiceHint: "Можно не печатать: нажмите «🎤 Надиктовать» у вопроса и говорите.",
+  voiceHint: "Можно не печатать: нажмите «🎤 Надиктовать» у вопроса, говорите, потом нажмите «Готово» — текст появится в поле. На iPhone откройте анкету в Safari.",
   privacy: "Конфиденциально: анкета не загружает ответы ни на какой сервер и в базу. Они хранятся только в этом браузере, пока вы заполняете, и уходят Надежде, когда вы сами отправите их личным сообщением. Голос распознаёт ваш браузер или клавиатура телефона, как при обычной диктовке сообщения; сама анкета запись не получает.",
   whatsapp: "79043719721",
   recipient: "Надежде Вашлаевой",
@@ -247,33 +250,97 @@ window.ANKETA = {
   }
 
   // ---------- voice input ----------
-  // Speech is recognised by the browser or the phone keyboard (Google or Apple), never by this page.
-  // One recognition session serves the whole page: tapping 🎤 on another question only moves the target,
-  // so a stopped session can never cancel a new one.
+  // Speech is recognised by the browser or the phone (Google or Apple), never by this page.
+  // One recogniser serves the whole page, one question at a time. Safari on iPhone hands over the final
+  // text only after stop(), so a recording keeps its question until the browser reports the end;
+  // tapping 🎤 on another question stops the current recording and starts the next one after that end.
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const MIC_IDLE = "🎤 Надиктовать";
   const MIC_ON = "■ Готово";
-  const voice = { rec: null, listening: false, target: null, restartFor: null };
+  const KEYBOARD_TIP = "Нажмите значок микрофона на клавиатуре телефона и говорите — текст появится в поле. На компьютере с Windows: Win + H.";
+  const VOICE_BROKEN = "Голосовой ввод прервался. Нажмите 🎤 ещё раз или микрофон на клавиатуре телефона.";
+  const VOICE_ERRORS = {
+    "not-allowed": "Нет доступа к микрофону. На iPhone откройте анкету в Safari (из Telegram или WhatsApp: «⋯» → «Открыть в Safari») и разрешите микрофон. Или нажмите микрофон на клавиатуре телефона.",
+    "service-not-allowed": "Распознавание речи выключено. На iPhone откройте анкету в Safari и проверьте: Настройки → Основные → Клавиатура → «Диктовка». Или нажмите микрофон на клавиатуре телефона.",
+    "no-speech": "Ничего не слышно. Нажмите 🎤 и говорите."
+  };
+  // session: { input, button, interim, got, stopping, notice } — replaced as a whole on every change
+  const voice = { rec: null, session: null, pending: null };
 
   function setMic(button, on) {
     button.classList.toggle("listening", on);
     button.textContent = on ? MIC_ON : MIC_IDLE;
   }
 
-  function appendToField(input, text) {
-    const clean = text.trim();
-    if (!clean) return;
-    input.value = input.value.trim() ? `${input.value.trim()} ${clean}` : clean;
-    setAnswer(input.id, input.value);
+  function voiceNote(input, text, bad) {
+    const node = input.closest(".with-mic").querySelector(".voice-note");
+    node.textContent = text;
+    node.classList.toggle("bad", Boolean(bad));
   }
 
-  function voiceError(code) {
-    if (code === "aborted") return;
-    if (code === "no-speech") return status("Ничего не слышно. Нажмите 🎤 и говорите.");
-    if (code === "not-allowed" || code === "service-not-allowed") {
-      return status("Разрешите доступ к микрофону или нажмите микрофон на клавиатуре телефона.", true);
+  function appendToField(input, text) {
+    const clean = (text || "").trim();
+    if (!clean) return false;
+    input.value = input.value.trim() ? `${input.value.trim()} ${clean}` : clean;
+    setAnswer(input.id, input.value);
+    return true;
+  }
+
+  function onVoiceResult(event) {
+    const s = voice.session;
+    if (!s) return;
+    let got = s.got;
+    let interim = "";
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) got = appendToField(s.input, text) || got;
+      else interim += text;
     }
-    status("Голосовой ввод прервался. Нажмите 🎤 ещё раз или микрофон на клавиатуре телефона.", true);
+    voice.session = { ...s, got, interim: interim.trim() };
+    if (interim.trim()) voiceNote(s.input, `Слышу: «${interim.trim()}»`);
+    else if (got && !s.stopping) voiceNote(s.input, "Слушаю… Говорите, потом нажмите «Готово».");
+  }
+
+  /** Closes the current recording: keeps words the browser never finalised and tells what happened. */
+  function finishSession(message, bad) {
+    const s = voice.session;
+    if (!s) return;
+    voice.session = null;
+    const saved = appendToField(s.input, s.interim) || s.got;
+    setMic(s.button, false);
+    const text = message || s.notice;
+    if (text) return voiceNote(s.input, text, bad);
+    if (!saved) return voiceNote(s.input, "Ничего не распознано. Нажмите 🎤 и говорите чуть громче — или микрофон на клавиатуре телефона.", true);
+    voiceNote(s.input, s.stopping ? "Записано ✓" : "Запись остановилась. Чтобы продолжить, нажмите 🎤.");
+  }
+
+  function dropPending() {
+    const p = voice.pending;
+    voice.pending = null;
+    if (p) setMic(p.button, false);
+  }
+
+  function onVoiceEnd() {
+    finishSession();
+    const next = voice.pending;
+    voice.pending = null;
+    if (next) begin(next.input, next.button);
+  }
+
+  function onVoiceError(event) {
+    const code = event.error;
+    if (code === "aborted") return; // comes with a stop; the end event follows
+    const s = voice.session;
+    if (code === "no-speech") {
+      if (!s) return;
+      voice.session = { ...s, notice: VOICE_ERRORS["no-speech"] };
+      voiceNote(s.input, VOICE_ERRORS["no-speech"]);
+      return;
+    }
+    // Permission and service errors: Safari sends no end event after them, so the recording closes here.
+    dropPending();
+    if (s) finishSession(VOICE_ERRORS[code] || VOICE_BROKEN, true);
+    else status(VOICE_ERRORS[code] || VOICE_BROKEN, true);
   }
 
   function recognizer() {
@@ -281,63 +348,56 @@ window.ANKETA = {
     const rec = new Recognition();
     rec.lang = "ru-RU";
     rec.continuous = true;
-    rec.interimResults = false;
-    rec.onresult = (event) => {
-      if (!voice.target) return;
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        if (event.results[i].isFinal) appendToField(voice.target.input, event.results[i][0].transcript);
-      }
-    };
-    rec.onerror = (event) => voiceError(event.error);
-    rec.onend = () => {
-      voice.listening = false;
-      if (voice.target) setMic(voice.target.button, false);
-      voice.target = null;
-      const next = voice.restartFor;
-      voice.restartFor = null;
-      if (next) begin(next.input, next.button);
-    };
+    rec.interimResults = true; // without it Safari shows nothing at all until the recording stops
+    rec.onstart = () => { if (voice.session) voiceNote(voice.session.input, "Слушаю… Говорите, потом нажмите «Готово»."); };
+    rec.onresult = onVoiceResult;
+    rec.onerror = onVoiceError;
+    rec.onend = onVoiceEnd;
     voice.rec = rec;
     return rec;
   }
 
   function begin(input, button) {
-    voice.target = { input, button };
+    document.querySelectorAll(".voice-note").forEach((n) => { if (!input.closest(".with-mic").contains(n)) n.textContent = ""; });
+    voice.session = { input, button, interim: "", got: false, stopping: false, notice: "" };
     setMic(button, true);
+    voiceNote(input, "Включаю микрофон…");
     try {
       recognizer().start();
-      voice.listening = true;
-      status("Слушаю… Говорите. Нажмите «Готово», когда закончите.");
     } catch (e) {
+      voice.session = null;
       if (e && e.name === "InvalidStateError") {
-        voice.restartFor = { input, button }; // the previous session is still closing; start right after it ends
+        voice.pending = { input, button }; // the previous recording is still closing; start right after it ends
         return;
       }
       setMic(button, false);
-      voice.target = null;
-      status("Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре телефона.", true);
+      voiceNote(input, `Голосовой ввод сейчас недоступен. ${KEYBOARD_TIP}`, true);
     }
+  }
+
+  function stopSession(s) {
+    voice.session = { ...s, stopping: true };
+    setMic(s.button, false);
+    voiceNote(s.input, "Дописываю…");
+    try { voice.rec.stop(); } catch (e) { onVoiceEnd(); }
   }
 
   function toggleVoice(input, button) {
     if (!Recognition) {
       input.focus();
-      status("Нажмите значок микрофона на клавиатуре телефона и говорите — текст появится в поле. На компьютере с Windows: Win + H.");
+      voiceNote(input, KEYBOARD_TIP);
       return;
     }
-    if (voice.listening && voice.target && voice.target.button === button) {
-      setMic(button, false);
-      voice.target = null;
-      voice.listening = false;
-      try { voice.rec.stop(); } catch (e) { /* already stopped */ }
-      status("Готово. Можно переходить к следующему вопросу.");
-      return;
-    }
-    if (voice.listening) {
-      if (voice.target) setMic(voice.target.button, false);
-      voice.target = { input, button };
+    const s = voice.session;
+    const wasQueued = Boolean(voice.pending && voice.pending.button === button);
+    dropPending();
+    if (wasQueued) return voiceNote(input, ""); // a second tap cancels the queued start
+    if (s && s.button === button && !s.stopping) return stopSession(s);
+    if (s) {
+      voice.pending = { input, button };
       setMic(button, true);
-      status("Слушаю… Говорите ответ на этот вопрос.");
+      voiceNote(input, "Включаю микрофон…");
+      if (!s.stopping) stopSession(s);
       return;
     }
     begin(input, button);
@@ -345,7 +405,7 @@ window.ANKETA = {
 
   function withMic(input) {
     const button = el("button", { type: "button", class: "mic", "aria-label": "Надиктовать ответ голосом", onclick: () => toggleVoice(input, button) }, MIC_IDLE);
-    return el("div", { class: "with-mic" }, input, button);
+    return el("div", { class: "with-mic" }, input, button, el("div", { class: "voice-note", role: "status", "aria-live": "polite" }));
   }
 
   // ---------- render ----------
