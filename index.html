@@ -248,16 +248,16 @@ window.ANKETA = {
 
   // ---------- voice input ----------
   // Speech is recognised by the browser or the phone keyboard (Google or Apple), never by this page.
+  // One recognition session serves the whole page: tapping 🎤 on another question only moves the target,
+  // so a stopped session can never cancel a new one.
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let activeVoice = null;
+  const MIC_IDLE = "🎤 Надиктовать";
+  const MIC_ON = "■ Готово";
+  const voice = { rec: null, listening: false, target: null, restartFor: null };
 
-  function stopVoice() {
-    if (!activeVoice) return;
-    const { rec, button } = activeVoice;
-    activeVoice = null;
-    button.classList.remove("listening");
-    button.textContent = "🎤 Надиктовать";
-    try { rec.stop(); } catch (e) { /* already stopped */ }
+  function setMic(button, on) {
+    button.classList.toggle("listening", on);
+    button.textContent = on ? MIC_ON : MIC_IDLE;
   }
 
   function appendToField(input, text) {
@@ -267,54 +267,97 @@ window.ANKETA = {
     setAnswer(input.id, input.value);
   }
 
-  function startVoice(input, button) {
-    if (activeVoice && activeVoice.button === button) return stopVoice();
-    stopVoice();
-    if (!Recognition) {
-      input.focus();
-      status("Нажмите значок микрофона на клавиатуре телефона и говорите — текст появится в поле. На компьютере с Windows: Win + H.");
-      return;
+  function voiceError(code) {
+    if (code === "aborted") return;
+    if (code === "no-speech") return status("Ничего не слышно. Нажмите 🎤 и говорите.");
+    if (code === "not-allowed" || code === "service-not-allowed") {
+      return status("Разрешите доступ к микрофону или нажмите микрофон на клавиатуре телефона.", true);
     }
+    status("Голосовой ввод прервался. Нажмите 🎤 ещё раз или микрофон на клавиатуре телефона.", true);
+  }
+
+  function recognizer() {
+    if (voice.rec) return voice.rec;
     const rec = new Recognition();
     rec.lang = "ru-RU";
     rec.continuous = true;
     rec.interimResults = false;
     rec.onresult = (event) => {
+      if (!voice.target) return;
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        if (event.results[i].isFinal) appendToField(input, event.results[i][0].transcript);
+        if (event.results[i].isFinal) appendToField(voice.target.input, event.results[i][0].transcript);
       }
     };
-    rec.onerror = (event) => {
-      const reason = event.error === "not-allowed" || event.error === "service-not-allowed"
-        ? "Разрешите доступ к микрофону или нажмите микрофон на клавиатуре телефона."
-        : "Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре телефона.";
-      status(reason, true);
-      stopVoice();
+    rec.onerror = (event) => voiceError(event.error);
+    rec.onend = () => {
+      voice.listening = false;
+      if (voice.target) setMic(voice.target.button, false);
+      voice.target = null;
+      const next = voice.restartFor;
+      voice.restartFor = null;
+      if (next) begin(next.input, next.button);
     };
-    rec.onend = () => { if (activeVoice && activeVoice.rec === rec) stopVoice(); };
-    activeVoice = { rec, button };
-    button.classList.add("listening");
-    button.textContent = "■ Готово";
-    status("Слушаю… Говорите. Нажмите «Готово», когда закончите.");
-    try { rec.start(); } catch (e) {
-      stopVoice();
+    voice.rec = rec;
+    return rec;
+  }
+
+  function begin(input, button) {
+    voice.target = { input, button };
+    setMic(button, true);
+    try {
+      recognizer().start();
+      voice.listening = true;
+      status("Слушаю… Говорите. Нажмите «Готово», когда закончите.");
+    } catch (e) {
+      if (e && e.name === "InvalidStateError") {
+        voice.restartFor = { input, button }; // the previous session is still closing; start right after it ends
+        return;
+      }
+      setMic(button, false);
+      voice.target = null;
       status("Голосовой ввод сейчас недоступен — нажмите микрофон на клавиатуре телефона.", true);
     }
   }
 
+  function toggleVoice(input, button) {
+    if (!Recognition) {
+      input.focus();
+      status("Нажмите значок микрофона на клавиатуре телефона и говорите — текст появится в поле. На компьютере с Windows: Win + H.");
+      return;
+    }
+    if (voice.listening && voice.target && voice.target.button === button) {
+      setMic(button, false);
+      voice.target = null;
+      voice.listening = false;
+      try { voice.rec.stop(); } catch (e) { /* already stopped */ }
+      status("Готово. Можно переходить к следующему вопросу.");
+      return;
+    }
+    if (voice.listening) {
+      if (voice.target) setMic(voice.target.button, false);
+      voice.target = { input, button };
+      setMic(button, true);
+      status("Слушаю… Говорите ответ на этот вопрос.");
+      return;
+    }
+    begin(input, button);
+  }
+
   function withMic(input) {
-    const button = el("button", { type: "button", class: "mic", "aria-label": "Надиктовать ответ голосом", onclick: () => startVoice(input, button) }, "🎤 Надиктовать");
+    const button = el("button", { type: "button", class: "mic", "aria-label": "Надиктовать ответ голосом", onclick: () => toggleVoice(input, button) }, MIC_IDLE);
     return el("div", { class: "with-mic" }, input, button);
   }
 
   // ---------- render ----------
   function fieldInput(f) {
     const value = answers[f.id];
+    // Keyboard dictation on phones does not always fire "input", so change and blur save the answer too.
+    const save = (e) => setAnswer(f.id, e.target.value);
     if (f.type === "textarea") {
-      return withMic(el("textarea", { id: f.id, placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }, value || ""));
+      return withMic(el("textarea", { id: f.id, placeholder: f.placeholder, oninput: save, onchange: save, onblur: save }, value || ""));
     }
     if (f.type === "text") {
-      return withMic(el("input", { id: f.id, type: "text", value: value || "", placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }));
+      return withMic(el("input", { id: f.id, type: "text", value: value || "", placeholder: f.placeholder, oninput: save, onchange: save, onblur: save }));
     }
     const multi = f.type === "checkbox";
     const chosen = multi ? (value || []) : value;
