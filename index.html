@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Диагностика бизнеса перед встречей</title>
+<script>document.documentElement.className += " js";</script>
+<style>
+:root {
+  --paper: #FBF7F2;
+  --ink: #1F1A17;
+  --muted: #6B605A;
+  --green: #23402F;
+  --green-soft: #E3EADF;
+  --rose: #B4475C;
+  --rose-soft: #F3E0DA;
+  --line: #E7DACF;
+  --card: #FFFFFF;
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 16px/1.5 var(--sans); }
+input, textarea, button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+html:not(.js) .needs-js { display: none; }
+.nojs .warn { background: var(--rose-soft); border-radius: 12px; padding: 12px 14px; margin: 14px 0; }
+.nojs ol { padding-left: 22px; }
+.nojs li { margin: 0 0 12px; }
+.nojs li small { display: block; color: var(--muted); }
+.nojs h2 { font-family: var(--serif); color: var(--green); font-size: 20px; margin: 20px 0 8px; }
+.head { background: var(--green); color: #F4F1EA; border-radius: 18px; padding: 22px 20px; }
+.head h1 { font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.15; margin: 0 0 8px; color: #fff; }
+.head p { margin: 0; color: #DCE5DE; }
+.privacy { margin-top: 14px; display: flex; gap: 10px; align-items: flex-start; background: rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.privacy b { color: #F2B8C4; }
+
+.progress { position: sticky; top: 0; z-index: 2; background: var(--paper); padding: 12px 0 10px; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; background: var(--rose); transition: width 200ms; }
+.progress small { color: var(--muted); font-size: 13px; }
+
+section.block { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 16px; }
+section.block h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--green); margin: 0 0 6px; }
+.q { padding: 12px 0; border-top: 1px solid var(--line); }
+.q:first-of-type { border-top: 0; }
+.q > label, .q > .label { display: block; font-weight: 600; margin-bottom: 8px; }
+.q .req { color: var(--rose); }
+.q input[type="text"], .q textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--paper); }
+.q textarea { min-height: 88px; resize: vertical; }
+.opts { display: grid; gap: 6px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--paper); }
+.opt:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
+.opt input { margin-top: 4px; accent-color: var(--green); }
+.q.invalid input[type="text"], .q.invalid textarea, .q.invalid .opt { border-color: var(--rose); }
+.q .err { color: var(--rose); font-size: 13px; margin-top: 6px; display: none; }
+.q.invalid .err { display: block; }
+
+.send { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-top: 16px; }
+.consent { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.consent input { margin-top: 4px; accent-color: var(--green); }
+.buttons { display: grid; gap: 10px; }
+.btn { border: 1px solid var(--green); background: var(--green); color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--green); }
+.btn.rose { background: var(--rose); border-color: var(--rose); }
+.status { margin-top: 12px; font-size: 14px; color: var(--green); min-height: 20px; }
+.status.bad { color: var(--rose); }
+.small { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.clear { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <noscript><div class="nojs"><header class="head"><h1>Диагностика бизнеса перед встречей</h1><p>Ответьте, пожалуйста, до нашей встречи — это 7–10 минут. Я заранее разберусь в вашей ситуации, и на встрече мы сразу перейдём к решениям. Пишите как есть, своими словами: правильных ответов нет. Обязательные вопросы отмечены звёздочкой.</p></header><p class="warn"><b>Файл открыт в режиме просмотра — здесь кнопки не работают.</b> Откройте его на компьютере или в браузере. Или просто ответьте на вопросы ниже обычным сообщением Надежде Вашлаевой — номер вопроса и ответ. Это тоже конфиденциально: ответы никуда, кроме вашей личной переписки, не попадают.</p><h2>1. О бизнесе</h2><ol start="1"><li>Ваше имя *</li><li>Телефон или Telegram для связи *</li><li>Чем занимается бизнес: ниша, города, сколько точек *</li><li>Сколько человек в команде и кто за что отвечает</li></ol><h2>2. Заявки и продажи</h2><ol start="5"><li>Откуда приходят заявки? *<small>можно несколько: ВКонтакте · Telegram · MAX · WhatsApp · Звонки · Сайт · Агрегаторы и маркетплейсы · Яндекс Карты или 2ГИС · Авито · Приходят в точку сами · Другое</small></li><li>Сколько заявок в обычный день и в самый загруженный день года?</li><li>Где вы записываете заявки и заказы? *<small>один вариант: В голове или в переписке · Тетрадь или блокнот · Excel или Google Таблица · CRM-система · Учётная программа или касса · Другое</small></li><li>Бывает, что заявки теряются или клиенту долго не отвечают? Когда и почему?</li></ol><h2>3. Время и рутина</h2><ol start="9"><li>Что отнимает у вас больше всего времени каждую неделю? *</li><li>Какие задачи вы бы отдали помощнику уже завтра, будь он у вас?</li><li>Сколько часов в неделю уходит на соцсети и ответы клиентам — у вас и команды вместе?<small>один вариант: Меньше 2 часов · 2–5 часов · 5–10 часов · Больше 10 часов · Не считали</small></li></ol><h2>4. Трудности и опыт</h2><ol start="12"><li>Что сейчас мешает бизнесу сильнее всего? *</li><li>Что уже пробовали: подрядчики, сервисы, CRM, боты, реклама? Что сработало, а что нет?</li><li>Главная цель на ближайшие 3–6 месяцев, лучше с цифрой</li></ol><h2>5. Что вам интересно</h2><ol start="15"><li>Что хотелось бы обсудить на встрече? Можно несколько *<small>варианты: Все заявки в одном окне · ИИ-консультант, который отвечает клиентам 24/7 · Посты: пишу один раз — выходят во всех городах · Напоминания клиентам о важных датах · Один сайт вместо нескольких · Анализ рынка и трендов: Кузбасс, Сибирь, Россия — куда расти · Автоворонка для наставничества (марафон, запись на разбор) · ИИ-помощник для разборов и сопровождения клиентов · Пока не знаю — хочу посмотреть варианты</small></li><li>Если интересен анализ рынка: какой вопрос он должен закрыть?</li><li>Что должно произойти на встрече, чтобы вы сказали: время потрачено не зря?</li><li>Какой бюджет на автоматизацию в месяц для вас комфортен?<small>один вариант: Пока не готов(а) вкладывать · До 5 000 ₽ · 5 000–15 000 ₽ · 15 000–30 000 ₽ · Больше 30 000 ₽ · Обсудим на встрече</small></li></ol></div></noscript>
+  <div class="needs-js">
+  <header class="head">
+    <h1 id="title"></h1>
+    <p id="intro"></p>
+    <div class="privacy"><b>🔒</b><span id="privacy"></span></div>
+  </header>
+
+  <div class="progress" aria-live="polite">
+    <div class="bar"><span></span></div>
+    <small id="progress-text"></small>
+  </div>
+
+  <form id="form" onsubmit="return false"></form>
+
+  <div class="send">
+    <label class="consent"><input type="checkbox" id="consent"><span id="consent-text"></span></label>
+    <div class="buttons">
+      <button class="btn" type="button" id="send-wa">Отправить в WhatsApp</button>
+      <button class="btn ghost" type="button" id="send-copy">Скопировать ответы — для Telegram или MAX</button>
+    </div>
+    <div class="status" id="status" role="status"></div>
+    <p class="small">Пока вы заполняете, ответы сохраняются только в этом браузере — можно закрыть и вернуться. <button type="button" class="clear" id="clear">Стереть мои ответы с этого устройства</button></p>
+  </div>
+  </div>
+</div>
+
+<script>
+// Вопросы конфиденциальной анкеты «Диагностика бизнеса перед встречей».
+// Анкета не отправляет данные на сервер: ответы уходят Надежде личным сообщением.
+window.ANKETA = {
+  title: "Диагностика бизнеса перед встречей",
+  intro: "Ответьте, пожалуйста, до нашей встречи — это 7–10 минут. Я заранее разберусь в вашей ситуации, и на встрече мы сразу перейдём к решениям. Пишите как есть, своими словами: правильных ответов нет. Обязательные вопросы отмечены звёздочкой.",
+  privacy: "Конфиденциально: анкета не загружает ответы ни на какой сервер и в базу. Они хранятся только в этом браузере, пока вы заполняете, и уходят Надежде, когда вы сами отправите их личным сообщением.",
+  whatsapp: "79043719721",
+  recipient: "Надежде Вашлаевой",
+  storageKey: "anketa-diagnostika-v1",
+
+  sections: [
+    {
+      title: "1. О бизнесе",
+      fields: [
+        { id: "name", label: "Ваше имя", type: "text", required: true },
+        { id: "contact", label: "Телефон или Telegram для связи", type: "text", required: true },
+        { id: "business", label: "Чем занимается бизнес: ниша, города, сколько точек", type: "textarea", required: true, placeholder: "Например: цветочные магазины, 3 города, 6 точек и оптовая база" },
+        { id: "team", label: "Сколько человек в команде и кто за что отвечает", type: "textarea", placeholder: "Например: 4 флориста, 2 администратора, курьер по договорённости" }
+      ]
+    },
+    {
+      title: "2. Заявки и продажи",
+      fields: [
+        { id: "sources", label: "Откуда приходят заявки?", type: "checkbox", required: true,
+          options: ["ВКонтакте", "Telegram", "MAX", "WhatsApp", "Звонки", "Сайт", "Агрегаторы и маркетплейсы", "Яндекс Карты или 2ГИС", "Авито", "Приходят в точку сами", "Другое"] },
+        { id: "volume", label: "Сколько заявок в обычный день и в самый загруженный день года?", type: "text", placeholder: "Например: 15–20 в обычный, 300+ на 8 Марта" },
+        { id: "record", label: "Где вы записываете заявки и заказы?", type: "radio", required: true,
+          options: ["В голове или в переписке", "Тетрадь или блокнот", "Excel или Google Таблица", "CRM-система", "Учётная программа или касса", "Другое"] },
+        { id: "lost", label: "Бывает, что заявки теряются или клиенту долго не отвечают? Когда и почему?", type: "textarea" }
+      ]
+    },
+    {
+      title: "3. Время и рутина",
+      fields: [
+        { id: "timeEater", label: "Что отнимает у вас больше всего времени каждую неделю?", type: "textarea", required: true },
+        { id: "delegate", label: "Какие задачи вы бы отдали помощнику уже завтра, будь он у вас?", type: "textarea" },
+        { id: "smmHours", label: "Сколько часов в неделю уходит на соцсети и ответы клиентам — у вас и команды вместе?", type: "radio",
+          options: ["Меньше 2 часов", "2–5 часов", "5–10 часов", "Больше 10 часов", "Не считали"] }
+      ]
+    },
+    {
+      title: "4. Трудности и опыт",
+      fields: [
+        { id: "blocker", label: "Что сейчас мешает бизнесу сильнее всего?", type: "textarea", required: true },
+        { id: "tried", label: "Что уже пробовали: подрядчики, сервисы, CRM, боты, реклама? Что сработало, а что нет?", type: "textarea" },
+        { id: "goal", label: "Главная цель на ближайшие 3–6 месяцев, лучше с цифрой", type: "textarea", placeholder: "Например: пройти 8 Марта без потерянных заказов или освободить себе 2 дня в неделю" }
+      ]
+    },
+    {
+      title: "5. Что вам интересно",
+      fields: [
+        { id: "interest", label: "Что хотелось бы обсудить на встрече? Можно несколько", type: "checkbox", required: true,
+          options: [
+            "Все заявки в одном окне",
+            "ИИ-консультант, который отвечает клиентам 24/7",
+            "Посты: пишу один раз — выходят во всех городах",
+            "Напоминания клиентам о важных датах",
+            "Один сайт вместо нескольких",
+            "Анализ рынка и трендов: Кузбасс, Сибирь, Россия — куда расти",
+            "Автоворонка для наставничества (марафон, запись на разбор)",
+            "ИИ-помощник для разборов и сопровождения клиентов",
+            "Пока не знаю — хочу посмотреть варианты"
+          ] },
+        { id: "market", label: "Если интересен анализ рынка: какой вопрос он должен закрыть?", type: "textarea", placeholder: "Например: стоит ли открываться в Томске или Новокузнецке, что сейчас растёт в цветочном бизнесе" },
+        { id: "meeting", label: "Что должно произойти на встрече, чтобы вы сказали: время потрачено не зря?", type: "textarea" },
+        { id: "budget", label: "Какой бюджет на автоматизацию в месяц для вас комфортен?", type: "radio",
+          options: ["Пока не готов(а) вкладывать", "До 5 000 ₽", "5 000–15 000 ₽", "15 000–30 000 ₽", "Больше 30 000 ₽", "Обсудим на встрече"] }
+      ]
+    }
+  ],
+
+  consent: "Я согласен(на), чтобы мои ответы использовались только для подготовки к встрече"
+};
+</script>
+<script>
+// Конфиденциальная анкета: рисует вопросы из window.ANKETA, хранит черновик только в этом браузере
+// и собирает ответы в текст, который клиент сам отправляет личным сообщением.
+(function () {
+  "use strict";
+  const A = window.ANKETA;
+  const WA_TEXT_LIMIT = 3500;
+  const allFields = A.sections.flatMap((s) => s.fields);
+
+  function el(tag, attrs, ...children) {
+    const node = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === false) return;
+      if (k === "class") node.className = v;
+      else if (k === "text") node.textContent = v;
+      else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? "" : String(v));
+    });
+    children.flat().forEach((c) => { if (c !== null && c !== undefined && c !== false) node.append(c instanceof Node ? c : document.createTextNode(String(c))); });
+    return node;
+  }
+
+  // ---------- draft (local only) ----------
+  function loadDraft() {
+    try { return JSON.parse(localStorage.getItem(A.storageKey) || "{}"); } catch (e) { return {}; }
+  }
+  function saveDraft(answers) {
+    try { localStorage.setItem(A.storageKey, JSON.stringify(answers)); } catch (e) { /* storage blocked: the form still works */ }
+  }
+  function clearDraft() {
+    try { localStorage.removeItem(A.storageKey); } catch (e) { /* nothing to clear */ }
+  }
+
+  let answers = loadDraft();
+
+  function setAnswer(id, value) {
+    answers = { ...answers, [id]: value };
+    saveDraft(answers);
+    updateProgress();
+    const q = document.querySelector(`[data-q="${id}"]`);
+    if (q && isAnswered(id)) q.classList.remove("invalid");
+  }
+
+  function isAnswered(id) {
+    const v = answers[id];
+    return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());
+  }
+
+  // ---------- render ----------
+  function fieldInput(f) {
+    const value = answers[f.id];
+    if (f.type === "textarea") {
+      return el("textarea", { id: f.id, placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) }, value || "");
+    }
+    if (f.type === "text") {
+      return el("input", { id: f.id, type: "text", value: value || "", placeholder: f.placeholder, oninput: (e) => setAnswer(f.id, e.target.value) });
+    }
+    const multi = f.type === "checkbox";
+    const chosen = multi ? (value || []) : value;
+    return el("div", { class: "opts", role: multi ? "group" : "radiogroup", "aria-labelledby": `${f.id}-label` }, f.options.map((opt) => {
+      const checked = multi ? chosen.includes(opt) : chosen === opt;
+      const input = el("input", {
+        type: multi ? "checkbox" : "radio", name: f.id, value: opt, checked,
+        onchange: (e) => {
+          if (!multi) return setAnswer(f.id, opt);
+          const current = answers[f.id] || [];
+          setAnswer(f.id, e.target.checked ? [...current, opt] : current.filter((x) => x !== opt));
+        }
+      });
+      return el("label", { class: "opt" }, input, el("span", { text: opt }));
+    }));
+  }
+
+  function renderQuestion(f) {
+    const labelTag = f.type === "checkbox" || f.type === "radio" ? "div" : "label";
+    const labelAttrs = labelTag === "label" ? { for: f.id } : { class: "label", id: `${f.id}-label` };
+    return el("div", { class: "q", "data-q": f.id },
+      el(labelTag, labelAttrs, f.label, f.required ? el("span", { class: "req", text: " *" }) : null),
+      fieldInput(f),
+      el("div", { class: "err", text: "Ответьте, пожалуйста, на этот вопрос" }));
+  }
+
+  function render() {
+    document.getElementById("title").textContent = A.title;
+    document.getElementById("intro").textContent = A.intro;
+    document.getElementById("privacy").textContent = A.privacy;
+    document.getElementById("consent-text").textContent = A.consent;
+    document.getElementById("form").replaceChildren(...A.sections.map((s) =>
+      el("section", { class: "block" }, el("h2", { text: s.title }), s.fields.map(renderQuestion))));
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const done = allFields.filter((f) => isAnswered(f.id)).length;
+    document.querySelector(".bar span").style.width = `${Math.round((done / allFields.length) * 100)}%`;
+    document.getElementById("progress-text").textContent = `Заполнено ${done} из ${allFields.length}`;
+  }
+
+  // ---------- compose & send ----------
+  /** Builds the plain-text message with all answers. */
+  function compose() {
+    const lines = [`Анкета «${A.title}»`];
+    A.sections.forEach((s) => {
+      lines.push("", s.title.toUpperCase());
+      s.fields.forEach((f) => {
+        const v = answers[f.id];
+        const text = Array.isArray(v) ? v.join("; ") : (v || "").trim();
+        lines.push(`• ${f.label}: ${text || "—"}`);
+      });
+    });
+    return lines.join("\n");
+  }
+
+  function validate() {
+    const missing = allFields.filter((f) => f.required && !isAnswered(f.id));
+    document.querySelectorAll(".q").forEach((q) => q.classList.toggle("invalid", missing.some((f) => f.id === q.dataset.q)));
+    const consent = document.getElementById("consent").checked;
+    if (missing.length) {
+      document.querySelector(`[data-q="${missing[0].id}"]`).scrollIntoView({ behavior: "smooth", block: "center" });
+      return `Осталось ответить на обязательные вопросы: ${missing.length}`;
+    }
+    if (!consent) return "Отметьте, пожалуйста, согласие внизу";
+    return "";
+  }
+
+  function status(text, bad) {
+    const node = document.getElementById("status");
+    node.textContent = text;
+    node.className = bad ? "status bad" : "status";
+  }
+
+  function sendWhatsApp() {
+    const problem = validate();
+    if (problem) return status(problem, true);
+    const text = compose();
+    if (text.length > WA_TEXT_LIMIT) {
+      status("Ответы длинные — WhatsApp может обрезать сообщение. Лучше нажмите «Скопировать ответы» и вставьте их в чат.", true);
+      return;
+    }
+    window.open(`https://wa.me/${A.whatsapp}?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+    status("Открываю WhatsApp — нажмите там «Отправить».");
+  }
+
+  async function copyAnswers() {
+    const problem = validate();
+    if (problem) return status(problem, true);
+    const text = compose();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const area = el("textarea", { style: "position:fixed;opacity:0" }, text);
+      document.body.append(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      if (!ok) return status("Не получилось скопировать автоматически. Выделите ответы вручную или отправьте через WhatsApp.", true);
+    }
+    status(`Скопировано. Вставьте ответы в личные сообщения ${A.recipient} в Telegram или MAX.`);
+  }
+
+  function clearAll() {
+    if (!window.confirm("Стереть все ответы на этом устройстве?")) return;
+    clearDraft();
+    answers = {};
+    render();
+    status("Ответы стёрты с этого устройства.");
+  }
+
+  function init() {
+    render();
+    document.getElementById("send-wa").addEventListener("click", sendWhatsApp);
+    document.getElementById("send-copy").addEventListener("click", copyAnswers);
+    document.getElementById("clear").addEventListener("click", clearAll);
+  }
+
+  window.AnketaApp = { init, compose, validate };
+})();
+</script>
+<script>AnketaApp.init();</script>
+</body>
+</html>
